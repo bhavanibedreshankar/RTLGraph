@@ -63,13 +63,14 @@ export default function Landing() {
       </nav>
 
       <section className="hero">
-        <span className="eyebrow">Verilator → semantic graph → answers</span>
-        <h1>Ask your chip's wiring questions directly.</h1>
+        <span className="eyebrow">A retrieval technique for hardware design</span>
+        <h1>Stop retrieving RTL text. Start retrieving hardware knowledge.</h1>
         <p className="lede">
-          RTLGraph turns an elaborated hardware design into a queryable graph
-          database. No simulation, no waveform viewer, no LLM guesswork —
-          just the actual modules, signals, registers, and dependencies,
-          indexed so you can trace what drives what in one click.
+          RTL is a graph — hierarchy, connectivity, dependencies, clocks,
+          resets — not the flat text most tools search it as. RTLGraph
+          retrieves from a compiler's <em>elaborated</em> representation of a
+          design instead of its source text, so structural questions get
+          exact, explainable answers instead of best-effort text matches.
         </p>
         <div className="hero-ctas">
           <a className="btn btn-primary" href="/app">Launch the live demo</a>
@@ -84,36 +85,44 @@ export default function Landing() {
       </section>
 
       <section className="section section-alt" id="how-it-works">
-        <h2>You don't need to know RTL to use this</h2>
+        <h2>RTL's real structure already exists — inside the compiler</h2>
         <p className="section-sub">
-          Here's the whole idea, in plain English.
+          Not a simplification. The actual idea behind the retrieval technique.
         </p>
         <div className="explainer-grid">
           <div>
             <p>
-              <strong>RTL (Register-Transfer Level)</strong> is the actual
-              blueprint engineers write to describe a chip's logic — every
-              wire, register, and conditional block that eventually becomes
-              real silicon. <strong>Verilator</strong> is an open-source tool
-              that reads that blueprint and compiles it into an internal
-              structural representation.
+              Every RTL and verification engineer already knows this problem:
+              tracing what drives a signal means grepping across hundreds of
+              files, following instance names through generate blocks, and
+              hoping you didn't miss a driver written in an unusual way.
+              AI coding assistants inherit that problem instead of solving
+              it — they retrieve RTL the way they retrieve any codebase, with
+              full-text or embedding search over chunks of source. That works
+              for software. It works poorly for RTL, because <strong>RTL is
+              not naturally organized as text</strong> — it's a graph of
+              hierarchy, connectivity, and dependencies that no text chunker
+              or embedding model can see.
             </p>
             <p>
-              <strong>RTLGraph takes that compiled structure and turns it
-              into a graph</strong> — modules and instances nest inside each
-              other, signals and registers are nodes, and typed edges record
-              exactly who drives, reads, depends on, or is clocked by what.
-              Once it's a graph, questions that would normally mean grepping
-              through thousands of lines of code become direct, instant graph
-              lookups: <em>what drives this? what does this affect? what's
-              this signal's reset domain?</em>
+              Compilers already build that graph. Before a design can
+              simulate or synthesize, it has to be <strong>elaborated</strong> —
+              every parameter bound, every generate block unrolled, every
+              signal's driver and readers resolved. RTLGraph's idea: instead
+              of retrieving RTL source code, retrieve the compiler's
+              elaborated representation directly and keep it as a queryable
+              graph, rather than letting the compiler discard it once
+              simulation starts.
             </p>
             <p>
-              Everything is deterministic graph traversal (Python, NetworkX)
-              — <strong>there is no embedding model, no vector search, and
-              no LLM anywhere in the retrieval path.</strong> The same query
-              returns the same structural answer every time, which is exactly
-              what you want when you're debugging real hardware.
+              Once that structure is captured — modules and instances nested,
+              signals and registers as nodes, typed edges recording exactly
+              who drives, reads, depends on, or is clocked by what — a
+              question like <em>"what drives this?"</em> stops being a text
+              search and becomes a direct graph traversal.
+              <strong> No embedding model, no vector search, and no LLM
+              anywhere in the retrieval path.</strong> The same query returns
+              the same structural answer every time.
             </p>
           </div>
           <div className="concept-diagram">
