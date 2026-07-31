@@ -67,8 +67,11 @@ python3 -m venv .venv
 .venv/bin/pip install -e .
 .venv/bin/pytest -q
 
-# point at your own Verilator dump if you have one (design.tree.json +
-# design.meta.json produced by Verilator's --dumpi-json / tree-json output)
+# runs against the bundled sample design (data/sample/) by default
+.venv/bin/uvicorn api.main:app --app-dir src --port 8010
+
+# or point at your own Verilator dump (design.tree.json + design.meta.json
+# produced by Verilator's --dumpi-json / tree-json output)
 export RTLGRAPH_TREE=/path/to/design.tree.json
 export RTLGRAPH_META=/path/to/design.meta.json
 .venv/bin/uvicorn api.main:app --app-dir src --port 8010

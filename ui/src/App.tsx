@@ -14,13 +14,36 @@ import type { GraphNode } from './types'
 type Tab = 'module' | 'signal' | 'graph'
 type GraphMode = 'fanin' | 'fanout' | 'path'
 
+const TABS: Tab[] = ['module', 'signal', 'graph']
+const GRAPH_MODES: GraphMode[] = ['fanin', 'fanout', 'path']
+
+// Read once at module load, not per-render: lets demo links on the landing
+// page (e.g. /app?tab=graph&signal=ctrl_enable_q&module=tpe_cmd_proc&mode=fanin)
+// drop a visitor straight into a populated view instead of a blank search box.
+function readInitialParams() {
+  const params = new URLSearchParams(window.location.search)
+  const tabParam = params.get('tab')
+  const modeParam = params.get('mode')
+  return {
+    tab: TABS.includes(tabParam as Tab) ? (tabParam as Tab) : null,
+    signal: params.get('signal'),
+    module: params.get('module'),
+    mode: GRAPH_MODES.includes(modeParam as GraphMode) ? (modeParam as GraphMode) : null,
+    destination: params.get('destination') ?? '',
+  }
+}
+
+const initialParams = readInitialParams()
+
 export default function App() {
   const [topModule, setTopModule] = useState<string | null>(null)
-  const [selectedModule, setSelectedModule] = useState<string | null>(null)
-  const [selectedSignal, setSelectedSignal] = useState<{ name: string; module?: string } | null>(null)
-  const [tab, setTab] = useState<Tab>('module')
-  const [graphMode, setGraphMode] = useState<GraphMode>('fanin')
-  const [pathDestination, setPathDestination] = useState('')
+  const [selectedModule, setSelectedModule] = useState<string | null>(initialParams.module)
+  const [selectedSignal, setSelectedSignal] = useState<{ name: string; module?: string } | null>(
+    initialParams.signal ? { name: initialParams.signal, module: initialParams.module ?? undefined } : null,
+  )
+  const [tab, setTab] = useState<Tab>(initialParams.tab ?? (initialParams.signal ? 'signal' : 'module'))
+  const [graphMode, setGraphMode] = useState<GraphMode>(initialParams.mode ?? 'fanin')
+  const [pathDestination, setPathDestination] = useState(initialParams.destination)
   const [stats, setStats] = useState<{ nodes: number; edges: number } | null>(null)
   const [connectionError, setConnectionError] = useState(false)
 
@@ -33,7 +56,9 @@ export default function App() {
         const top = r.modules.find((m) => m.is_top)
         if (top) {
           setTopModule(String(top.name))
-          setSelectedModule(String(top.name))
+          // Only default to the top module if a deep link didn't already
+          // request a specific one.
+          if (!initialParams.module) setSelectedModule(String(top.name))
         }
       })
       .catch(() => setConnectionError(true))
@@ -68,8 +93,9 @@ export default function App() {
   return (
     <div className="app">
       <header className="app-header">
-        <h1>RTLGraph</h1>
+        <a href="/" className="app-logo-link"><h1>RTLGraph</h1></a>
         <span className="hint">semantic RTL retrieval engine{stats ? ` · ${stats.nodes} nodes · ${stats.edges} edges` : ''}</span>
+        <a href="https://github.com/bhavanibedreshankar/RTLGraph" className="header-github-link" target="_blank" rel="noopener noreferrer">GitHub ↗</a>
       </header>
       <div className="app-body">
         <aside className="sidebar">

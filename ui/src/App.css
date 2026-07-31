@@ -19,6 +19,22 @@
   letter-spacing: -0.02em;
 }
 
+.app-logo-link {
+  text-decoration: none;
+  color: inherit;
+}
+
+.header-github-link {
+  margin-left: auto;
+  color: var(--text-dim);
+  font-size: 12.5px;
+  text-decoration: none;
+}
+
+.header-github-link:hover {
+  color: var(--accent);
+}
+
 .app-body {
   display: flex;
   flex: 1;

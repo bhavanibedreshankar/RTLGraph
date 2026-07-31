@@ -22,9 +22,14 @@ from retrieval.engine import ModuleNotFound, RetrievalEngine, SignalNotFound
 from storage.pipeline import load_or_build_graph
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-DEFAULT_TREE = os.environ.get("RTLGRAPH_TREE", "/Users/bhavanibs/Documents/Claude/tpe_database/design.tree.json")
-DEFAULT_META = os.environ.get("RTLGRAPH_META", "/Users/bhavanibs/Documents/Claude/tpe_database/design.meta.json")
-DEFAULT_DB = os.environ.get("RTLGRAPH_DB", str(REPO_ROOT / "data" / "rtlgraph.db"))
+_SAMPLE_DIR = REPO_ROOT / "data" / "sample"
+DEFAULT_TREE = os.environ.get("RTLGRAPH_TREE", str(_SAMPLE_DIR / "design.tree.json"))
+DEFAULT_META = os.environ.get("RTLGRAPH_META", str(_SAMPLE_DIR / "design.meta.json"))
+
+# Vercel's function filesystem is read-only except /tmp; VERCEL=1 is set
+# automatically in that runtime. Locally, cache next to the repo as before.
+_DEFAULT_DB_PATH = "/tmp/rtlgraph.db" if os.environ.get("VERCEL") else str(REPO_ROOT / "data" / "rtlgraph.db")
+DEFAULT_DB = os.environ.get("RTLGRAPH_DB", _DEFAULT_DB_PATH)
 
 
 @asynccontextmanager
