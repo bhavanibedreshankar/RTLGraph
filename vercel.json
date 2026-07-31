@@ -1,7 +1,9 @@
 {
+  "framework": null,
   "buildCommand": "cd ui && npm install && npm run build",
   "outputDirectory": "ui/dist",
   "rewrites": [
+    { "source": "/api/(.*)", "destination": "/api/index" },
     { "source": "/app", "destination": "/index.html" },
     { "source": "/app/(.*)", "destination": "/index.html" }
   ]
