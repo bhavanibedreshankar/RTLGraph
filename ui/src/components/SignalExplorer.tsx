@@ -18,36 +18,51 @@ interface Props {
   onSelectSignal: (name: string, module: string) => void
 }
 
+// Each section fetches independently: a failure or slow response in one
+// (e.g. driver trace) must not blank the sections that already loaded fine.
+type Loadable<T> = { status: 'loading' } | { status: 'error' } | { status: 'ok'; data: T }
+
+function useLoadable<T>(fetcher: () => Promise<T>, deps: unknown[]): Loadable<T> {
+  const [state, setState] = useState<Loadable<T>>({ status: 'loading' })
+  useEffect(() => {
+    let cancelled = false
+    setState({ status: 'loading' })
+    fetcher()
+      .then((data) => { if (!cancelled) setState({ status: 'ok', data }) })
+      .catch(() => { if (!cancelled) setState({ status: 'error' }) })
+    return () => { cancelled = true }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, deps)
+  return state
+}
+
+function SectionStatus({ state }: { state: Loadable<unknown> }) {
+  if (state.status === 'loading') return <div className="hint">loading…</div>
+  if (state.status === 'error') return <div className="error">failed to load</div>
+  return null
+}
+
 function Loc({ node }: { node: GraphNode }) {
   if (!node.loc) return null
   return <span className="loc">{String(node.loc)}</span>
 }
 
 export function SignalExplorer({ signalName, moduleName, onShowFanin, onShowFanout, onSelectSignal }: Props) {
-  const [signal, setSignal] = useState<GraphNode | null>(null)
-  const [driver, setDriver] = useState<DriverResponse | null>(null)
-  const [receivers, setReceivers] = useState<ReceiverResponse | null>(null)
-  const [clockDomain, setClockDomain] = useState<ClockDomainResponse | null>(null)
-  const [resetTree, setResetTree] = useState<ResetTreeResponse | null>(null)
-  const [assignments, setAssignments] = useState<AssignmentsResponse | null>(null)
-  const [alwaysBlocks, setAlwaysBlocks] = useState<AlwaysBlocksResponse | null>(null)
-  const [error, setError] = useState<string | null>(null)
+  const signalState = useLoadable(() => rtlgraph.getSignal(signalName, moduleName), [signalName, moduleName])
+  const driverState = useLoadable(() => rtlgraph.driver(signalName, moduleName), [signalName, moduleName])
+  const receiversState = useLoadable(() => rtlgraph.receivers(signalName, moduleName), [signalName, moduleName])
+  const clockDomainState = useLoadable(() => rtlgraph.signalClockDomain(signalName, moduleName), [signalName, moduleName])
+  const resetTreeState = useLoadable(() => rtlgraph.signalResetTree(signalName, moduleName), [signalName, moduleName])
+  const assignmentsState = useLoadable(() => rtlgraph.signalAssignments(signalName, moduleName), [signalName, moduleName])
+  const alwaysBlocksState = useLoadable(() => rtlgraph.signalAlwaysBlocks(signalName, moduleName), [signalName, moduleName])
 
-  useEffect(() => {
-    setError(null)
-    setSignal(null)
-    Promise.all([
-      rtlgraph.getSignal(signalName, moduleName).then((r) => setSignal(r.matches[0] ?? null)),
-      rtlgraph.driver(signalName, moduleName).then(setDriver),
-      rtlgraph.receivers(signalName, moduleName).then(setReceivers),
-      rtlgraph.signalClockDomain(signalName, moduleName).then(setClockDomain),
-      rtlgraph.signalResetTree(signalName, moduleName).then(setResetTree),
-      rtlgraph.signalAssignments(signalName, moduleName).then(setAssignments),
-      rtlgraph.signalAlwaysBlocks(signalName, moduleName).then(setAlwaysBlocks),
-    ]).catch((e) => setError(String(e.message ?? e)))
-  }, [signalName, moduleName])
-
-  if (error) return <div className="error">{error}</div>
+  const signal = signalState.status === 'ok' ? signalState.data.matches[0] ?? null : null
+  const driver: DriverResponse | null = driverState.status === 'ok' ? driverState.data : null
+  const receivers: ReceiverResponse | null = receiversState.status === 'ok' ? receiversState.data : null
+  const clockDomain: ClockDomainResponse | null = clockDomainState.status === 'ok' ? clockDomainState.data : null
+  const resetTree: ResetTreeResponse | null = resetTreeState.status === 'ok' ? resetTreeState.data : null
+  const assignments: AssignmentsResponse | null = assignmentsState.status === 'ok' ? assignmentsState.data : null
+  const alwaysBlocks: AlwaysBlocksResponse | null = alwaysBlocksState.status === 'ok' ? alwaysBlocksState.data : null
 
   return (
     <div className="signal-explorer">
@@ -57,6 +72,7 @@ export function SignalExplorer({ signalName, moduleName, onShowFanin, onShowFano
         {signal?.module ? <span className="tag">{String(signal.module)}</span> : null}
       </h2>
       {signal?.width ? <div className="hint">width: {String(signal.width)} bit(s)</div> : null}
+      {signalState.status === 'error' && <div className="error">failed to load signal details</div>}
 
       <div className="button-row">
         <button onClick={onShowFanin}>Show Fan-in Graph</button>
@@ -66,6 +82,7 @@ export function SignalExplorer({ signalName, moduleName, onShowFanin, onShowFano
       <div className="grid-2">
         <section>
           <h4>Driver Trace</h4>
+          <SectionStatus state={driverState} />
           {driver && driver.drivers.length === 0 && <div className="hint">no drivers found (primary input?)</div>}
           <ul className="compact-list">
             {driver?.drivers.map((d, idx) => (
@@ -85,6 +102,7 @@ export function SignalExplorer({ signalName, moduleName, onShowFanin, onShowFano
 
         <section>
           <h4>Receivers (fan-out, direct)</h4>
+          <SectionStatus state={receiversState} />
           {receivers && receivers.receivers.length === 0 && <div className="hint">no direct readers found</div>}
           <ul className="compact-list">
             {receivers?.receivers.map((r, idx) => (
@@ -99,6 +117,7 @@ export function SignalExplorer({ signalName, moduleName, onShowFanin, onShowFano
 
         <section>
           <h4>Clock Domain</h4>
+          <SectionStatus state={clockDomainState} />
           {clockDomain && clockDomain.clock_domains.length === 0 && <div className="hint">not clocked</div>}
           <ul className="compact-list">
             {clockDomain?.clock_domains.map((c) => (
@@ -109,6 +128,7 @@ export function SignalExplorer({ signalName, moduleName, onShowFanin, onShowFano
 
         <section>
           <h4>Reset Tree</h4>
+          <SectionStatus state={resetTreeState} />
           {resetTree && resetTree.reset_domains.length === 0 && <div className="hint">no reset</div>}
           <ul className="compact-list">
             {resetTree?.reset_domains.map((r) => (
@@ -131,7 +151,10 @@ export function SignalExplorer({ signalName, moduleName, onShowFanin, onShowFano
 
         <section>
           <h4>Assignments</h4>
-          <div className="hint">driving: {assignments?.driving_assignments.length ?? 0} · reading: {assignments?.reading_assignments.length ?? 0}</div>
+          <SectionStatus state={assignmentsState} />
+          {assignments && (
+            <div className="hint">driving: {assignments.driving_assignments.length} · reading: {assignments.reading_assignments.length}</div>
+          )}
           <ul className="compact-list">
             {assignments?.driving_assignments.map((a) => (
               <li key={a.id}><span className="tag">{String(a.kind)}</span><Loc node={a} /></li>
@@ -141,7 +164,10 @@ export function SignalExplorer({ signalName, moduleName, onShowFanin, onShowFano
 
         <section>
           <h4>Always Blocks</h4>
-          <div className="hint">writing: {alwaysBlocks?.writing_always_blocks.length ?? 0} · reading: {alwaysBlocks?.reading_always_blocks.length ?? 0}</div>
+          <SectionStatus state={alwaysBlocksState} />
+          {alwaysBlocks && (
+            <div className="hint">writing: {alwaysBlocks.writing_always_blocks.length} · reading: {alwaysBlocks.reading_always_blocks.length}</div>
+          )}
           <ul className="compact-list">
             {alwaysBlocks?.writing_always_blocks.map((a) => (
               <li key={a.id}><span className="tag">{String(a.kind)}</span>{a.clock ? <span className="mono">@{String(a.clock)}</span> : null}<Loc node={a} /></li>

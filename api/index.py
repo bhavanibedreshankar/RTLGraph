@@ -26,6 +26,15 @@ _module = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(_module)
 rtlgraph_app = _module.app
 
+# Build the graph/engine synchronously here, at import time (i.e. once per
+# cold start), rather than relying on rtlgraph_app's `lifespan` hook. Starlette
+# does not guarantee a mounted sub-app's lifespan runs before it serves its
+# first request, so leaving this to `lifespan` let concurrent requests on a
+# fresh instance race into `get_engine()` and corrupt the shared /tmp SQLite
+# cache (surfaced as intermittent 500s -- see get_engine's lock for the other
+# half of this fix).
+_module.get_engine()
+
 from fastapi import FastAPI  # noqa: E402
 
 app = FastAPI()

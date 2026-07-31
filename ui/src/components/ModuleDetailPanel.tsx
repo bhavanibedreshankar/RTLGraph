@@ -7,6 +7,11 @@ interface Props {
   onSelectSignal: (name: string, module: string) => void
 }
 
+function Loc({ node }: { node: GraphNode }) {
+  if (!node.loc) return null
+  return <span className="loc">{String(node.loc)}</span>
+}
+
 function NameList({ items, module, onSelectSignal, showDir }: { items: GraphNode[]; module: string; onSelectSignal: (n: string, m: string) => void; showDir?: boolean }) {
   if (items.length === 0) return <div className="hint">none</div>
   return (
@@ -69,12 +74,22 @@ export function ModuleDetailPanel({ moduleName, onSelectSignal }: Props) {
         <section>
           <h4>Always Blocks ({detail.always_blocks.length})</h4>
           <ul className="compact-list">
-            {detail.always_blocks.map((a) => (
-              <li key={a.id}>
-                <span className="tag">{String(a.kind)}</span>
-                {a.clock ? <span className="mono">@{String(a.clock)}</span> : null}
-              </li>
-            ))}
+            {detail.always_blocks.map((a) => {
+              const writes = a.writes as string[] | undefined
+              const target = writes?.[0]
+              return (
+                <li
+                  key={a.id}
+                  onClick={target ? () => onSelectSignal(target, moduleName) : undefined}
+                  className={target ? undefined : 'not-clickable'}
+                >
+                  <span className="tag">{String(a.kind)}</span>
+                  {a.clock ? <span className="mono">@{String(a.clock)}</span> : null}
+                  <span className="mono">{writes && writes.length > 0 ? `writes: ${writes.join(', ')}` : ''}</span>
+                  <Loc node={a} />
+                </li>
+              )
+            })}
           </ul>
         </section>
       </div>

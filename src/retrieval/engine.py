@@ -108,10 +108,14 @@ class RetrievalEngine:
                 out.append(_node(self.graph, dst))
         return out
 
-    def search(self, query: str, limit: int = 25) -> list[dict[str, Any]]:
+    def search(self, query: str, limit: int = 25) -> tuple[list[dict[str, Any]], int]:
         """Free-text search across module/instance/signal/register/port names
         for the REST /search endpoint. Still pure string/graph matching --
-        no embeddings."""
+        no embeddings.
+
+        Returns (results, total_matches) so callers can tell whether `limit`
+        truncated the result set.
+        """
         needle = query.lower()
         results: list[dict[str, Any]] = []
         for node_id, attrs in self.graph.nodes(data=True):
@@ -122,7 +126,7 @@ class RetrievalEngine:
                 score = 0 if name.lower() == needle else (1 if name.lower().endswith(needle) else 2)
                 results.append((score, _node(self.graph, node_id)))
         results.sort(key=lambda pair: (pair[0], len(pair[1].get("name", ""))))
-        return [r for _, r in results[:limit]]
+        return [r for _, r in results[:limit]], len(results)
 
     # ------------------------------------------------------------------
     # driver / receiver tracing

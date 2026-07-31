@@ -122,7 +122,8 @@ def test_find_always_blocks(engine):
 
 
 def test_search_finds_module_and_instance(engine):
-    results = engine.search("cmd_proc")
+    results, total = engine.search("cmd_proc")
     names = {r["name"] for r in results}
     assert "tpe_cmd_proc" in names
     assert "u_cmd_proc" in names
+    assert total == len(results)

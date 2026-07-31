@@ -10,6 +10,7 @@ toolset without going through HTTP at all.
 from __future__ import annotations
 
 import os
+import threading
 from pathlib import Path
 from typing import Any
 
@@ -53,13 +54,22 @@ app.add_middleware(
 )
 
 _engine: RetrievalEngine | None = None
+# Guards first-build of the engine/SQLite cache. Vercel's Python runtime can
+# dispatch concurrent requests to a single cold instance's process (and this
+# app is mounted as a sub-app under api/index.py, whose ASGI lifespan isn't
+# guaranteed to run before the first request reaches it) -- without this
+# lock, two concurrent requests could both see `_engine is None` and race to
+# write /tmp/rtlgraph.db at the same time, corrupting it and 500ing.
+_engine_lock = threading.Lock()
 
 
 def get_engine() -> RetrievalEngine:
     global _engine
     if _engine is None:
-        graph = load_or_build_graph(DEFAULT_TREE, DEFAULT_META, DEFAULT_DB)
-        _engine = RetrievalEngine(graph)
+        with _engine_lock:
+            if _engine is None:
+                graph = load_or_build_graph(DEFAULT_TREE, DEFAULT_META, DEFAULT_DB)
+                _engine = RetrievalEngine(graph)
     return _engine
 
 
@@ -107,7 +117,8 @@ def stats() -> dict[str, Any]:
 @app.get("/search")
 def search(q: str = Query(..., min_length=1), limit: int = 25) -> dict[str, Any]:
     engine = get_engine()
-    return {"query": q, "results": engine.search(q, limit=limit)}
+    results, total = engine.search(q, limit=limit)
+    return {"query": q, "results": results, "total": total}
 
 
 # ----------------------------------------------------------------------

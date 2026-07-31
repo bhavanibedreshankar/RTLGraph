@@ -127,6 +127,23 @@
   font-size: 11px;
 }
 
+.result-list li.result-more {
+  cursor: default;
+  font-size: 11px;
+}
+
+.result-list li.result-more:hover {
+  background: none;
+}
+
+.compact-list li.not-clickable {
+  cursor: default;
+}
+
+.compact-list li.not-clickable:hover {
+  background: none;
+}
+
 .top-badge {
   background: var(--accent);
   color: #06131f;

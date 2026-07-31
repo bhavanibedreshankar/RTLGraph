@@ -31,6 +31,7 @@ export interface ModuleDetail extends GraphNode {
 export interface SearchResponse {
   query: string
   results: GraphNode[]
+  total: number
 }
 
 export interface SignalResponse {
