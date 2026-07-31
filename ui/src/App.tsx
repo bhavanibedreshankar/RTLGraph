@@ -8,6 +8,7 @@ import { ModuleBrowser } from './components/ModuleBrowser'
 import { ModuleDetailPanel } from './components/ModuleDetailPanel'
 import { SearchBar } from './components/SearchBar'
 import { SignalExplorer } from './components/SignalExplorer'
+import { SignalPicker } from './components/SignalPicker'
 import type { GraphNode } from './types'
 
 type Tab = 'module' | 'signal' | 'graph'
@@ -84,67 +85,81 @@ export default function App() {
         </aside>
         <main className="main">
           <nav className="tabs">
-            <button className={tab === 'module' ? 'active' : ''} disabled={!selectedModule} onClick={() => setTab('module')}>Module Browser</button>
-            <button className={tab === 'signal' ? 'active' : ''} disabled={!selectedSignal} onClick={() => setTab('signal')}>Signal Explorer</button>
-            <button className={tab === 'graph' ? 'active' : ''} disabled={!selectedSignal} onClick={() => setTab('graph')}>Dependency Graph</button>
+            <button className={tab === 'module' ? 'active' : ''} onClick={() => setTab('module')}>Module Browser</button>
+            <button className={tab === 'signal' ? 'active' : ''} onClick={() => setTab('signal')}>Signal Explorer</button>
+            <button className={tab === 'graph' ? 'active' : ''} onClick={() => setTab('graph')}>Dependency Graph</button>
           </nav>
 
-          {tab === 'module' && selectedModule && (
-            <ModuleDetailPanel moduleName={selectedModule} onSelectSignal={handleSelectSignal} />
+          {tab === 'module' && (
+            selectedModule
+              ? <ModuleDetailPanel moduleName={selectedModule} onSelectSignal={handleSelectSignal} />
+              : <div className="hint">Search or pick a module from the sidebar to get started.</div>
           )}
 
-          {tab === 'signal' && selectedSignal && (
-            <>
-              <SignalExplorer
-                signalName={selectedSignal.name}
-                moduleName={selectedSignal.module}
-                onShowFanin={() => { setGraphMode('fanin'); setTab('graph') }}
-                onShowFanout={() => { setGraphMode('fanout'); setTab('graph') }}
-                onSelectSignal={handleSelectSignal}
+          {tab === 'signal' && (
+            selectedSignal ? (
+              <>
+                <SignalExplorer
+                  signalName={selectedSignal.name}
+                  moduleName={selectedSignal.module}
+                  onShowFanin={() => { setGraphMode('fanin'); setTab('graph') }}
+                  onShowFanout={() => { setGraphMode('fanout'); setTab('graph') }}
+                  onSelectSignal={handleSelectSignal}
+                />
+                <div className="grid-2">
+                  <section>
+                    <h4>Fan-in Tree</h4>
+                    <FaninFanoutTree signalName={selectedSignal.name} moduleName={selectedSignal.module} direction="fanin" onSelectSignal={handleSelectSignal} />
+                  </section>
+                  <section>
+                    <h4>Fan-out Tree</h4>
+                    <FaninFanoutTree signalName={selectedSignal.name} moduleName={selectedSignal.module} direction="fanout" onSelectSignal={handleSelectSignal} />
+                  </section>
+                </div>
+              </>
+            ) : (
+              <SignalPicker
+                prompt="No signal selected yet. Search for one, or click a port/signal/register inside Module Browser."
+                onSelect={handleSelectSignal}
               />
-              <div className="grid-2">
-                <section>
-                  <h4>Fan-in Tree</h4>
-                  <FaninFanoutTree signalName={selectedSignal.name} moduleName={selectedSignal.module} direction="fanin" onSelectSignal={handleSelectSignal} />
-                </section>
-                <section>
-                  <h4>Fan-out Tree</h4>
-                  <FaninFanoutTree signalName={selectedSignal.name} moduleName={selectedSignal.module} direction="fanout" onSelectSignal={handleSelectSignal} />
-                </section>
-              </div>
-            </>
+            )
           )}
 
-          {tab === 'graph' && selectedSignal && (
-            <div className="graph-tab">
-              <div className="button-row">
-                <label><input type="radio" checked={graphMode === 'fanin'} onChange={() => setGraphMode('fanin')} /> Fan-in</label>
-                <label><input type="radio" checked={graphMode === 'fanout'} onChange={() => setGraphMode('fanout')} /> Fan-out</label>
-                <label><input type="radio" checked={graphMode === 'path'} onChange={() => setGraphMode('path')} /> Path to…</label>
-                {graphMode === 'path' && (
-                  <input
-                    type="text"
-                    placeholder="destination signal name"
-                    value={pathDestination}
-                    onChange={(e) => setPathDestination(e.target.value)}
-                  />
-                )}
+          {tab === 'graph' && (
+            selectedSignal ? (
+              <div className="graph-tab">
+                <div className="button-row">
+                  <label><input type="radio" checked={graphMode === 'fanin'} onChange={() => setGraphMode('fanin')} /> Fan-in</label>
+                  <label><input type="radio" checked={graphMode === 'fanout'} onChange={() => setGraphMode('fanout')} /> Fan-out</label>
+                  <label><input type="radio" checked={graphMode === 'path'} onChange={() => setGraphMode('path')} /> Path to…</label>
+                  {graphMode === 'path' && (
+                    <input
+                      type="text"
+                      placeholder="destination signal name"
+                      value={pathDestination}
+                      onChange={(e) => setPathDestination(e.target.value)}
+                    />
+                  )}
+                </div>
+                <h3>
+                  <span className="mono">{selectedSignal.name}</span>
+                  {graphMode !== 'path' ? ` — ${graphMode}` : ` → ${pathDestination || '…'}`}
+                </h3>
+                <GraphView
+                  signalName={selectedSignal.name}
+                  moduleName={selectedSignal.module}
+                  mode={graphMode}
+                  destination={graphMode === 'path' ? pathDestination : undefined}
+                  onSelectSignal={handleSelectSignal}
+                />
               </div>
-              <h3>
-                <span className="mono">{selectedSignal.name}</span>
-                {graphMode !== 'path' ? ` — ${graphMode}` : ` → ${pathDestination || '…'}`}
-              </h3>
-              <GraphView
-                signalName={selectedSignal.name}
-                moduleName={selectedSignal.module}
-                mode={graphMode}
-                destination={graphMode === 'path' ? pathDestination : undefined}
-                onSelectSignal={handleSelectSignal}
+            ) : (
+              <SignalPicker
+                prompt="No signal selected yet. Search for one to visualize its dependency graph."
+                onSelect={handleSelectSignal}
               />
-            </div>
+            )
           )}
-
-          {!selectedModule && !selectedSignal && <div className="hint">Search for a module or signal to get started.</div>}
         </main>
       </div>
     </div>

@@ -44,6 +44,20 @@ def test_module_endpoint_404(client):
     assert r.status_code == 404
 
 
+def test_module_list_entries_have_unique_ids(client):
+    # Regression: /module/list used to return raw node attrs without the
+    # graph node id, so every row's `id` was undefined -- breaking React's
+    # list `key` prop in the UI (ModuleBrowser) and any client-side identity
+    # tracking that relies on it.
+    r = client.get("/module/list")
+    assert r.status_code == 200
+    modules = r.json()["modules"]
+    assert len(modules) > 0
+    ids = [m.get("id") for m in modules]
+    assert all(ids)
+    assert len(ids) == len(set(ids))
+
+
 def test_signal_endpoint(client):
     r = client.get("/signal", params={"name": "ctrl_enable_q"})
     assert r.status_code == 200

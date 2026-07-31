@@ -133,7 +133,11 @@ def module_registers(name: str) -> dict[str, Any]:
 @app.get("/module/list")
 def list_modules() -> dict[str, Any]:
     engine = get_engine()
-    modules = [d for _, d in engine.graph.nodes(data=True) if d.get("node_type") == "Module"]
+    modules = [
+        {"id": node_id, **d}
+        for node_id, d in engine.graph.nodes(data=True)
+        if d.get("node_type") == "Module"
+    ]
     modules.sort(key=lambda m: m.get("name", ""))
     return {"modules": modules}
 
