@@ -2,13 +2,61 @@
 
 > Stop retrieving RTL text. Start retrieving hardware knowledge.
 
-**RTLGraph is an AI-ready semantic retrieval engine that transforms a
-compiler's elaborated view of a hardware design into a knowledge graph for
-hardware reasoning.**
+**Compiler elaboration is an untapped retrieval source for AI.**
+
+Current AI systems repeatedly reconstruct information about a hardware
+design that a compiler has already computed — hierarchy, connectivity,
+dependencies, symbol resolution — by re-reading RTL as text, from scratch,
+every time. RTLGraph proposes preserving that computation instead of
+rediscovering it: capture a compiler's elaborated understanding of a design
+as a canonical semantic graph, so AI agents and humans retrieve exact
+structural evidence instead of reconstructing it from source.
 
 [Try the reference implementation →](https://rtlgraph.vercel.app)
 
 ---
+
+## The idea, in one picture
+
+```
++-----------------------------------------------------------------------+
+|                               RTL Source                              |
++-----------------------------------+-----------------------------------+
+                                    |  elaboration
+                                    v
++-----------------------------------------------------------------------+
+|                                Compiler                               |
+|     elaborates hierarchy, symbols, parameters, types, dependencies    |
++-----------------------------------+-----------------------------------+
+                                    |  captured, not discarded
+                                    v
++-----------------------------------------------------------------------+
+|                    Compiler Knowledge  (the asset)                    |
+|  hierarchy, connectivity, dependencies, clocks, resets, symbol table  |
++-----------------------------------+-----------------------------------+
+                                    |  structured as a typed graph
+                                    v
++-----------------------------------------------------------------------+
+|                  Canonical Graph  (just the encoding)                 |
+|                preserved, compiler-agnostic, queryable                |
++-----------------------------------+-----------------------------------+
+                                    |  queried by traversal, not text search
+                                    v
++-----------------------------------------------------------------------+
+|                            Retrieval Engine                           |
+|           graph traversal -- no embeddings, no vector search          |
++-----------------------------------+-----------------------------------+
+                                    |  structural evidence, not text
+                                    v
++-----------------------------------------------------------------------+
+|                            AI Agent / Human                           |
++-----------------------------------------------------------------------+
+```
+
+Notice what's doing the work. **Not the graph.** The graph is just how
+compiler knowledge gets preserved and made queryable — a serialization
+choice, not the idea. The asset is the compiler's own resolved understanding
+of the design, captured instead of discarded.
 
 ## The problem
 
@@ -35,92 +83,39 @@ just like a string of characters near some other strings. The actual
 question an engineer is asking — *what is this connected to, structurally?*
 — is a graph-traversal question wearing a text-search disguise.
 
-## The central idea
+## Compilers already solved this. AI throws it away.
 
-Modern RTL compilers and simulators don't work from source text either.
-Before a design can be simulated or synthesized, it has to be **elaborated**:
-every parameter bound, every generate block unrolled, every symbol resolved,
-every module instance linked to its definition, every signal's driver and
-readers identified. This elaboration step already produces exactly the
-structural representation a retrieval system needs — it just normally gets
-thrown away after the compiler finishes its own job.
+A compiler spends its entire existence solving exactly the problems a
+retrieval system needs solved:
 
-**RTLGraph's core idea: instead of retrieving RTL source code, leverage the
-compiler's elaborated design representation to construct a semantic
-knowledge graph that AI agents can reason over.** The graph becomes the
-retrieval layer. Source text is never chunked, embedded, or searched at
-query time — the compiler has already done the hard part of turning
-ambiguous, macro-laden, parameterized source into a resolved structure, and
-RTLGraph's only job is to preserve that structure as a queryable graph
-instead of discarding it.
+- **Symbol resolution** — every reference already linked to its declaration.
+- **Hierarchy** — the full instance tree, resolved, not just what's visible
+  in one file.
+- **Elaboration** — generate loops unrolled, conditionally-compiled code
+  resolved, macros expanded.
+- **Parameter binding** — every parameter bound to its actual value at every
+  instantiation site, not left as an ambiguous template.
+- **Type inference** — every signal's width and type resolved.
+- **Dependency analysis** — what drives what, and what depends on what.
+- **Connectivity** — every port-to-net connection at every instance
+  boundary, explicit.
 
-```
-+--------------------------------------------------------+
-|               RTL Source (SystemVerilog)               |
-+----------------------------+---------------------------+
-                             |  elaborated by a compiler
-                             v
-+--------------------------------------------------------+
-|                 Compiler / Elaborator                  |
-|    resolves hierarchy, parameters, generate blocks,    |
-|      symbols, connectivity, types, source mapping      |
-+----------------------------+---------------------------+
-                             |  canonical adapter (one per compiler)
-                             v
-+--------------------------------------------------------+
-|           Canonical Design Graph (RTLGraph)            |
-|    Modules, Instances, Signals, Registers, Clocks,     |
-|  Resets, Assignments, dependency & connectivity edges  |
-+----------------------------+---------------------------+
-                             |  graph traversal -- no embeddings
-                             v
-+--------------------------------------------------------+
-|                    Retrieval Engine                    |
-|      trace_driver, fanin/fanout, dependency_path,      |
-|    clock_domain, reset_tree, module_hierarchy, ...     |
-+----------------------------+---------------------------+
-                             |  structural evidence, not text
-                             v
-+--------------------------------------------------------+
-|                    AI Agent / Human                    |
-|     debug assistants, root-cause analysis, design      |
-|      review, documentation, impact analysis, ...       |
-+--------------------------------------------------------+
-```
+Most AI systems working on hardware source throw all of that away and start
+over from raw text, on every query, for a problem the compiler already
+solved correctly — because its own downstream job (simulation or synthesis)
+depends on getting it right.
 
-## Why elaborated data beats RTL source text as a retrieval source
+**RTLGraph asks: what if we didn't?**
 
-Everything below is work a text-based (or embedding-based) retrieval system
-has to rediscover itself, imperfectly, from source. A compiler has already
-done it correctly, because its own downstream job (simulation or synthesis)
-depends on getting it right:
+## Research hypothesis
 
-- **Module hierarchy** — the full instance tree is resolved, including every
-  level of nesting, not just what's visible in one file.
-- **Parameters** — every parameter is bound to its actual elaborated value;
-  a module instantiated three times with three different parameter sets is
-  three distinct, individually correct elaborated structures, not one
-  ambiguous template.
-- **Generate blocks** — `generate for` loops are fully unrolled into their
-  individual, addressable instances and signals, rather than left as a loop
-  construct a retrieval system would have to interpret.
-- **Symbol resolution** — every reference to a signal is already linked to
-  its declaration, across file and module boundaries, with macro and
-  `` `include`` expansion already applied.
-- **Connectivity** — every port-to-net connection at every instance boundary
-  is resolved and explicit.
-- **Expressions** — the actual logic driving a signal (an assignment, an
-  always-block body, a condition) is available as structured data, not as a
-  string to re-parse.
-- **Source mapping** — every element still carries its original
-  file/line/column, so structural answers can cite back to exact source
-  locations.
+Traditional AI retrieval systems treat RTL as text.
 
-A text or embedding-based system has to approximate all of this from
-un-elaborated source and will get it wrong on exactly the constructs real
-designs actually use — parameterized instances, unrolled arrays, unusual
-sensitivity-list ordering. A retrieval system built on the compiler's own
-resolved output doesn't have to approximate any of it.
+We hypothesize that compiler elaboration is a significantly richer
+retrieval source.
+
+If compiler knowledge is preserved as a canonical semantic graph, AI systems
+can retrieve exact structural evidence instead of approximate text.
 
 ## Retrieval philosophy: evidence, not text
 
@@ -153,19 +148,20 @@ resolving generate blocks, tracking parameter bindings — using only pattern
 matching over text, with no guarantee of correctness, and burning a large
 fraction of its context window on files that turn out to be irrelevant.
 
-With a semantic graph already built, the retrieval layer does that work
-instead and returns only the relevant structural evidence: the specific
-driving assignment, its enclosing always block, the clock and reset it's
-governed by, its immediate fan-in — a handful of precise facts instead of
-thousands of lines of surrounding code. Context size drops sharply, and
-correctness stops depending on the model's ability to mentally simulate a
-hardware compiler. **The retrieval engine is the core innovation here; the
-LLM downstream of it becomes optional** — the graph is useful to a human
-engineer through the same APIs, with no model in the loop at all.
+With preserved compiler knowledge already available as a graph, the
+retrieval layer does that work instead and returns only the relevant
+structural evidence: the specific driving assignment, its enclosing always
+block, the clock and reset it's governed by, its immediate fan-in — a
+handful of precise facts instead of thousands of lines of surrounding code.
+Context size drops sharply, and correctness stops depending on the model's
+ability to mentally simulate a hardware compiler. **The retrieval engine is
+the core innovation here; the LLM downstream of it becomes optional** — the
+graph is useful to a human engineer through the same APIs, with no model in
+the loop at all.
 
 ## Why this matters
 
-A semantic hardware graph is a primitive, not an end product — once it
+Preserved compiler knowledge is a primitive, not an end product — once it
 exists, a broad class of AI-assisted hardware engineering tools becomes
 substantially easier to build on top of it, because they all currently start
 by re-solving the same "understand the design's structure" problem from
@@ -194,37 +190,44 @@ scratch:
 - **Interactive design navigation** — the reference UI in this repo is one
   example, not the point of the architecture.
 
+## Why this idea isn't limited to RTL
+
+The pattern is `Compiler → Knowledge → Graph → Retriever`, and nothing about
+it is specific to hardware description languages. It depends only on there
+being a compiler that already resolves a domain's ambiguous, textual source
+into structured, disambiguated knowledge. RTLGraph validates the pattern
+against Verilator first — not because the idea is about Verilator, but
+because it's open-source and unusually willing to expose its elaborated
+internals.
+
+The same pattern applies anywhere a compiler already does that work:
+
+- **Other RTL/HDL compilers** — VCS, Xcelium, Surelog (via UHDM) — different
+  elaborators, same canonical graph.
+- **General-purpose compiler IRs** — LLVM IR, MLIR — already-resolved symbol
+  tables, call graphs, and data-flow, thrown away by most AI code-retrieval
+  systems the same way text-based RTL retrieval throws away elaboration.
+- **Other hardware representations** — synthesis netlists, gate-level
+  connectivity, extracted state machines.
+- **Structured domains outside hardware entirely** — a SQL query planner
+  already resolves the semantic structure a text-based SQL-retrieval system
+  would otherwise have to reconstruct; the same is true of anything with a
+  compiler or planner sitting in front of it.
+
+The claim isn't "this works for other RTL compilers too." It's broader:
+**wherever a compiler already exists for a domain, its elaborated output is
+a better retrieval substrate than that domain's source text.** RTL is simply
+the domain where this project tests the idea first.
+
 ## Architecture: compiler-agnostic by design
 
 RTLGraph is **not tied to Verilator.** Verilator is the first validated
-backend — chosen because it is open-source and (unusually, for a
-compiler) exposes its elaborated internal AST directly — not the
-architecture's ceiling.
-
-The four-layer separation shown in the diagram above is deliberate:
-`Compiler → Canonical Graph → Retrieval Engine → AI Agent`. The retrieval
-engine and everything downstream of it operate purely on the canonical graph
+backend — not the architecture's ceiling. The retrieval engine and
+everything downstream of it operate purely on the canonical graph
 (`src/models/design.py`) and know nothing about Verilator, or any other
 compiler, specifically. A different compiler backend means writing a new
 adapter that produces the same canonical model — nothing in `src/graph`,
 `src/retrieval`, or `src/api` has to change.
-
-**Future compiler support** the architecture is designed to accommodate:
-
-- **Verilator** — implemented today (`src/parser`), validated against a real
-  multi-module design (see below).
-- **Surelog / UHDM** — [UHDM](https://github.com/chipsalliance/UHDM) (Universal
-  Hardware Data Model) is an open, tool-agnostic elaborated-design format that
-  several compilers, including some commercial ones, are converging toward as
-  an interchange representation — the most realistic near-term path to
-  additional backends without a bespoke adapter per proprietary AST.
-- **Synopsys VCS**, **Cadence Xcelium/IES** — commercial simulators that
-  don't expose a public elaborated-AST dump the way Verilator does; a UHDM
-  bridge (where available) or a vendor-specific export path would be the
-  adapter target, still producing the same canonical model.
-- **Future proprietary compilers** — the only requirement to add a backend
-  is an adapter that emits the canonical `Design` model; the retrieval layer
-  and every application built on it are unaffected.
 
 ---
 
@@ -250,26 +253,22 @@ catalogued bugs for verification practice), regenerated with:
 ```bash
 verilator \
     --json-only \
-    --json-only-output /Users/bhavanibs/Documents/Claude/tpe_database/design.tree.json \
-    --json-only-meta-output /Users/bhavanibs/Documents/Claude/tpe_database/design.meta.json \
+    --json-only-output design.tree.json \
+    --json-only-meta-output design.meta.json \
     -Wall -Wno-fatal \
     -f rtl/filelist.f \
-    --top-module tpe_top > /Users/bhavanibs/Documents/Claude/tpe_database/verilator.log 2>&1
+    --top-module tpe_top
 ```
 
-`--json-only` makes Verilator elaborate the design (resolve includes, macros,
-parameters, generate-for loops, and types) and dump its internal AST as JSON
-instead of proceeding to C++ codegen; `--json-only-meta-output` dumps the
-companion source-file table and pointer-field schema the parser uses to
-resolve cross-references generically (`src/parser/ast_index.py`). Both files
-are committed at `data/sample/` so the deployed app is self-contained.
-
-This dataset exercises exactly the constructs that make elaborated data
-worth using in the first place: `generate for` loops unrolled into 256
+`--json-only` elaborates the design (resolves includes, macros, parameters,
+generate-for loops, and types) and dumps the internal AST as JSON instead of
+proceeding to C++ codegen. Both output files are committed at `data/sample/`
+so the deployed app is self-contained; the parser that consumes them
+(`src/parser/`) never hardcodes a signal or module name — it walks whatever
+elaborated structure Verilator produced, generically, including constructs
+that would break a naive parser: `generate for` loops unrolled into 256
 individually-scoped `pe` instances, module names with bound parameter values
-folded in (`dp_ram__DB10_A4_S10`), and sensitivity lists written in
-non-obvious orders — all of which the parser resolves generically, with no
-signal or module name ever hardcoded.
+folded in (`dp_ram__DB10_A4_S10`), sensitivity lists in non-obvious orders.
 
 ### Retrieval API
 
@@ -326,6 +325,7 @@ src/
   api/        FastAPI REST layer
   tests/      pytest suite run against a real Verilator sample
 ui/           React + TypeScript + Cytoscape.js frontend
+docs/         future_work.md -- scaling this to an actively-changing codebase
 ```
 
 ### Setup & run
@@ -363,29 +363,11 @@ driver trace / receivers / clock & reset domains / fan-in and fan-out trees,
 and use the dependency-graph tab for an interactive Cytoscape visualization
 or a shortest-path query between two signals.
 
-### Implementation status & open problems
+---
 
 Everything above is proven against a small, static, single-snapshot design.
-The honest next question, thinking like the design/verification engineer who
-would have to run this day to day: RTL in an active project changes many
-times a day across many engineers — does this require fully re-elaborating
-and rebuilding the graph on every change, and is that practical?
-
-Right now: yes, and that's a real limitation, not a solved problem.
-
-| # | Problem | Why it bites in practice | Direction to fix |
-|---|---------|---------------------------|-------------------|
-| 1 | **No incremental rebuild.** `storage/sqlite_store.py` deletes and rewrites the *entire* SQLite DB on every build; there's no notion of "only module X changed." | A one-line change to a leaf module currently costs the same as a from-scratch build of the whole design. At team scale (dozens of commits/day), that's wasted CPU on every single change if run eagerly. | Content-hash each module's elaborated subtree; on rebuild, diff against the previous graph's per-module hashes and only re-insert nodes/edges for modules whose hash changed, splicing the rest through unchanged. Needs stable node IDs across rebuilds (already true here — IDs are `module.name`-keyed, not addr-keyed) and a hierarchy-aware invalidation pass (a changed leaf module's parents' instance/pin edges may also need re-linking). |
-| 2 | **Verilator itself doesn't do incremental elaboration.** Even with a smarter graph-diff on my side, Verilator re-elaborates the *whole* design from `-f filelist.f` every time `--json-only` runs — there's no "just re-elaborate this module" mode. | Sets a hard floor on latency regardless of how clever the graph-side incrementality gets. For a large SoC (vs. this 16-module sample), elaboration alone can be minutes. | Don't run it inline on every save. Trigger on a debounced file-watch (batch rapid edits) for local/interactive use, and on CI only for changed filelist paths (skip when a commit doesn't touch RTL). Accept some staleness for anything faster than that — same trade every incremental build system makes. |
-| 3 | **JSON dump size scales with design size, and it's loaded fully into memory.** This sample's dump is ~5.5MB for 16 modules / ~3,400 graph nodes, parsed in ~0.1s. A real SoC with hundreds of modules could produce a multi-GB dump, and `ast_index.py` currently `json.load`s the whole thing plus builds a full `addr -> node` index in RAM. | Multi-GB `json.load` + Python object overhead (typically 3-5x the file size in memory) risks becoming a memory/latency wall well before the design gets exotically large. | Stream-parse (e.g. `ijson`) instead of loading the whole tree at once; or have Verilator scope the dump to a subsystem (`--top-module` per IP block) and stitch subsystem graphs together at the boundary rather than elaborating the entire chip in one JSON blob. |
-| 4 | **Elaborated module identity is parameter-sensitive.** Verilator bakes bound parameter values into elaborated module names (`dp_ram__DB10_A4_S10`); a param change looks like "new/deleted module," not "modified module," to a naive diff. Generate-block unrolling has the same effect at the instance level if a loop bound changes (256 `pe` instances becoming 288 shifts every scoped name after it). | Naive content-hashing (problem #1) will misfire here — a single parameter tweak can look like most of the subtree "changed" even when the logic didn't. | Diff on (orig module name, parameter bindings) as a structured key rather than the mangled elaborated name, so the diff engine can recognize "same module, different parameters" instead of treating it as unrelated. |
-| 5 | **Multiple build configurations multiply everything.** Real projects elaborate the same RTL under several configs (ASIC vs. FPGA target, different memory sizes, pre-DFT vs. post-DFT, per-subsystem verification top-levels). Each is a structurally different elaborated graph. | Naively, that's N full graphs (N × the storage/rebuild cost of #1-3) for N configs, growing linearly with configuration count, not design count. | Store one graph per (design, config) key with the module-level dedup from #1 shared across configs where the *underlying* RTL is identical — most configs differ in only a handful of parameters/defines, so the majority of module subgraphs should be reusable. |
-| 6 | **No versioning / history.** One graph = one point-in-time snapshot; rebuilding overwrites it. There's no "what changed between yesterday's build and today's," which is one of the most valuable debugging questions in an actively-changing codebase. | Can't answer "did this driver change last week" without keeping N full snapshots, which multiplies disk cost linearly with history depth. | Content-addressed, git-like storage for node/edge records (dedup unchanged nodes across versions instead of duplicating the whole graph per snapshot) rather than one SQLite file per build. |
-| 7 | **SQLite has a single-writer model.** Fine for one engineer's local instance; not fine as a shared team service where CI is rebuilding while others are querying. | Concurrent-write contention, and no natural multi-tenant story. | For a shared/hosted deployment, move to a server-backed store (Postgres, or a real graph DB) behind the same retrieval-engine interface — `src/retrieval/engine.py` only depends on a `networkx.MultiDiGraph`, so the storage layer is already swappable without touching retrieval logic. |
-| 8 | **Black-boxed / IP-protected submodules break full visibility.** Real SoCs pull in vendor IP that may be given as an encrypted or source-unavailable model — Verilator can't elaborate what it can't see inside. | The parser currently assumes full RTL visibility; an opaque IP block would either fail to elaborate or (worse) silently produce an incomplete picture without saying so. | Explicit "black box" node type for unelaboratable instances (ports/pins visible from the parent's connectivity, internals absent) so the retrieval engine degrades gracefully and *says* "opaque here" instead of silently stopping. |
-| 9 | **This is a static structural graph only — no runtime correlation.** RTLGraph knows what's *wired* to what; it has no idea what value anything actually took during a failing simulation, no waveform/coverage data. | The most common real debugging question is "why did this signal have the wrong *value* at time T," which needs dynamic (VCD/FSDB) data the static graph doesn't carry. | The most valuable extension, arguably more than incrementality: tag graph nodes with their simulation signal path so an agent can pivot from "this failed at time T in the waveform" to "here's the static fanin cone that could have caused it" in one hop — combining structural graph (this tool) with dynamic waveform data (a separate concern) rather than trying to make one tool do both. |
-
-None of this is a reason not to use the tool as-is for what it's good at
-today — point-in-time design understanding and debugging on a snapshot —
-but it's the honest list of what "run this continuously against an
-actively-changing codebase" would actually require solving.
+For the honest engineering constraints of running this continuously against
+an actively-changing, multi-engineer codebase — incremental rebuilds,
+Verilator's own lack of incremental elaboration, storage/versioning at
+scale, and the gap between static structure and runtime waveform data — see
+[`docs/future_work.md`](docs/future_work.md).
