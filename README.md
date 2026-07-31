@@ -55,37 +55,37 @@ RTLGraph's only job is to preserve that structure as a queryable graph
 instead of discarding it.
 
 ```
-┌──────────────────────────────────────────────────┐
-│               RTL Source (SystemVerilog)           │
-└───────────────────────┬────────────────────────────┘
-                         │  elaborated by a compiler
-                         ▼
-┌──────────────────────────────────────────────────┐
-│                Compiler / Elaborator                │
-│   resolves hierarchy, parameters, generate blocks,   │
-│   symbols, connectivity, types, source mapping       │
-└───────────────────────┬────────────────────────────┘
-                         │  canonical adapter (one per compiler)
-                         ▼
-┌──────────────────────────────────────────────────┐
-│            Canonical Design Graph (RTLGraph)         │
-│  Modules · Instances · Signals · Registers · Clocks · │
-│  Resets · Assignments · dependency & connectivity edges│
-└───────────────────────┬────────────────────────────┘
-                         │  graph traversal — no embeddings
-                         ▼
-┌──────────────────────────────────────────────────┐
-│                  Retrieval Engine                    │
-│  trace_driver · fanin/fanout · dependency_path ·      │
-│  clock_domain · reset_tree · module_hierarchy · ...   │
-└───────────────────────┬────────────────────────────┘
-                         │  structural evidence, not text
-                         ▼
-┌──────────────────────────────────────────────────┐
-│                  AI Agent  ·  Human                  │
-│  debug assistants · root-cause analysis · design      │
-│  review · documentation · impact analysis · ...        │
-└──────────────────────────────────────────────────┘
++--------------------------------------------------------+
+|               RTL Source (SystemVerilog)               |
++----------------------------+---------------------------+
+                             |  elaborated by a compiler
+                             v
++--------------------------------------------------------+
+|                 Compiler / Elaborator                  |
+|    resolves hierarchy, parameters, generate blocks,    |
+|      symbols, connectivity, types, source mapping      |
++----------------------------+---------------------------+
+                             |  canonical adapter (one per compiler)
+                             v
++--------------------------------------------------------+
+|           Canonical Design Graph (RTLGraph)            |
+|    Modules, Instances, Signals, Registers, Clocks,     |
+|  Resets, Assignments, dependency & connectivity edges  |
++----------------------------+---------------------------+
+                             |  graph traversal -- no embeddings
+                             v
++--------------------------------------------------------+
+|                    Retrieval Engine                    |
+|      trace_driver, fanin/fanout, dependency_path,      |
+|    clock_domain, reset_tree, module_hierarchy, ...     |
++----------------------------+---------------------------+
+                             |  structural evidence, not text
+                             v
++--------------------------------------------------------+
+|                    AI Agent / Human                    |
+|     debug assistants, root-cause analysis, design      |
+|      review, documentation, impact analysis, ...       |
++--------------------------------------------------------+
 ```
 
 ## Why elaborated data beats RTL source text as a retrieval source
