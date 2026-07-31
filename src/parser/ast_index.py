@@ -1,6 +1,6 @@
 """Generic indexing / pointer-resolution utilities over a Verilator AST JSON tree.
 
-Verilator's `--dumpi-json` (or equivalent) tree dump represents cross-references
+Verilator's `--json-only` tree dump represents cross-references
 (e.g. a VARREF pointing back at the VAR it reads, a CELL pointing at the MODULE
 it instantiates) as opaque address tokens like "(ABC)". The *first* time a node
 is emitted in the tree it appears as a full nested object carrying that address
