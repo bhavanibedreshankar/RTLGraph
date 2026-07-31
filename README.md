@@ -1,5 +1,7 @@
 # RTLGraph
 
+**Live demo: [rtlgraph.vercel.app](https://rtlgraph.vercel.app)**
+
 A semantic retrieval engine for RTL designs. RTLGraph parses Verilator's
 elaborated AST JSON output into a canonical object model, builds a typed
 directed graph, persists it to SQLite, and exposes graph-traversal retrieval
