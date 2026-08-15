@@ -92,17 +92,36 @@ class VerilatorParser:
     def _assign_clock_reset(self, design: Design) -> None:
         """Design-wide frequency pass: the signal edge-sensitized by the most
         distinct always blocks is treated as THE clock; the next most common
-        distinct signal is treated as THE (primary) reset. This avoids relying
-        on sensitivity-list order or any hardcoded signal name."""
+        distinct signal is treated as THE (primary) reset.
+
+        Ties (including the common single-always-block case, where the clock
+        and its one reset are each sensitized exactly once) are broken by
+        POSEDGE count: by RTL convention clocks are almost always posedge,
+        while resets are commonly either edge, so the signal seen more often
+        on a POS edge wins. Remaining ties fall back to first-seen order.
+        Both tiebreaks must be deterministic -- Verilator's own sensitivity-
+        item order does not reliably match source order, and Python's
+        set/hash iteration order is randomized per-process, so neither can be
+        used to pick a winner."""
         from collections import Counter
 
         freq: Counter[str] = Counter()
+        pos_freq: Counter[str] = Counter()
+        first_seen: dict[str, int] = {}
+        order = itertools.count()
         for module in design.modules.values():
             for always in module.always_blocks:
-                for signal_name in {item.signal for item in always.sensitivity if item.edge in ("POS", "NEG", "BOTH")}:
+                seen_this_block: dict[str, None] = {}
+                for item in always.sensitivity:
+                    if item.edge in ("POS", "NEG", "BOTH"):
+                        seen_this_block[item.signal] = None
+                        if item.edge == "POS":
+                            pos_freq[item.signal] += 1
+                for signal_name in seen_this_block:
                     freq[signal_name] += 1
+                    first_seen.setdefault(signal_name, next(order))
 
-        ranked = [name for name, _ in freq.most_common()]
+        ranked = sorted(freq, key=lambda name: (-freq[name], -pos_freq[name], first_seen[name]))
         clock_name = ranked[0] if len(ranked) >= 1 else None
         reset_name = ranked[1] if len(ranked) >= 2 else None
 
